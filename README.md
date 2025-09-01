@@ -8,9 +8,13 @@ run train_basemodel.py to obtain base model
 ## 2) Online deployment
 run adapt-z.py to conduct online prediction
 
-## Baselines and 
+## Baselines and supplementary experiments
 run run_dsof.py to conduct experiments using DSOF
+
 run ADCSD.py to conduct experiments using ADCSD
+
 run parameter_finetune to conduct experiments using OGD
+
 run z_finetune to conduct experiments using f-OGD
+
 run train_FAN.py/train_DishTS.py and ada_online2 fan.py/ada_online dishts.py to conduct experiments using FAN/DishTS and FAN+/DishYS+
