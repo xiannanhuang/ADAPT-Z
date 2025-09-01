@@ -1,0 +1,51 @@
+model: PatchTST
+fc_dropout: !!float 0.0
+head_dropout: !!float 0.0
+dropout: 0
+patch_len: !!int 16
+stride: !!int 8
+decomposition: false
+kernel_size: 25
+padding_patch: !!str end
+revin: !!int 0
+affine: !!int 0
+subtract_last: !!int 0
+individual: !!int 1
+channel_cross: !!bool false
+e_layers: 3
+individual: False
+gamma: 0.9
+res_attention: true
+norm: "batchnorm"
+affine: false
+# nh: 64
+d_model:
+  electricity: 128
+  ETTh2: 16
+  ETTh1: 16
+  ETTm1: 16
+  ETTm2: 16
+  traffic: 128
+  weather: 128
+  exchange: 16
+ 
+n_heads:
+  electricity: 16
+  ETTh2: 4
+  ETTm1: 4
+  ETTh1: 4
+  ETTm2: 4
+  traffic: 16
+  weather: 16
+  exchange: 4
+d_ff:
+  electricity: 256
+  ETTh2: 128
+  ETTm1: 128
+  ETTh1: 128
+  ETTm2: 128
+  traffic: 256
+  weather: 256
+  exchange: 128
+  nyctaxi: 128
+# hedging: false

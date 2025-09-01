@@ -1,0 +1,52 @@
+model: NSTransformer
+e_layers: 2
+d_layers: 1
+p_hidden_dims: 
+  electricity: 
+   - 256 
+   - 256
+  ETTh2: 
+    - 256 
+    - 256
+  ETTm1: 
+    - 256 
+    - 256
+  ETTh1:
+    - 256 
+    - 256
+  ETTm2: 
+    - 256 
+    - 256
+  exchange: 
+    - 64 
+    - 64
+  traffic: 
+    - 128 
+    - 128
+  weather: 
+    - 256 
+    - 256
+  traffic: 
+    - 128 
+    - 128
+  PEMS03: 
+    - 128 
+    - 128
+  PEMS04: 
+    - 128 
+    - 128
+  PEMS07c: 
+    - 128 
+    - 128
+  PEMS08: 
+    - 128 
+    - 128
+
+p_hidden_layers: 2
+output_attention: false
+d_model: 512
+embed: timeF
+dropout: 0
+n_heads: 8
+d_ff: 2048
+activation: gelu

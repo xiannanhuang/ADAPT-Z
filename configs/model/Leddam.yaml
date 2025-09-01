@@ -1,0 +1,16 @@
+# fc_dropout: !!float 0.05
+# head_dropout: !!float 0.0
+# patch_len: !!int 16
+# stride: !!int 8
+# padding_patch: !!str end
+# revin: !!int 0
+# affine: !!int 0
+# subtract_last: !!int 0
+# decomposition: !!int 0
+# kernel_size: !!int 25
+# tcn_output_dim: !!int 320
+# tcn_layer: !!int 2
+# tcn_hidden: !!int 160
+# individual: !!int 1
+# channel_cross: !!bool false
+model: Leddam
