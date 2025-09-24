@@ -232,6 +232,10 @@ settings={
 }
 class Ada_fineture:
     def __init__(self, model, d_model,args):
+        """
+        model: a model for time series forecasting. the output is a dict with key 'pred' and 'feature'.
+
+        """
         self.model=model
         self.device=args.device
         self.adapter=self.bulid_adapter(d_model,args)
@@ -252,23 +256,20 @@ class Ada_fineture:
                 self.linear2=nn.Linear(64,64)
                 self.linear3=nn.Linear(64,self.args.z_shape[-1])
                 # lr=np.ones((args.enc_in,d_model))
-                self.lr=nn.Parameter(torch.ones(self.args.z_shape,dtype=torch.float32),requires_grad=True)[0].to(self.args.device)
+                self.lr=nn.Parameter(torch.ones(self.args.z_shape,dtype=torch.float32),requires_grad=True)[0].to(self.args.device) # this can be omitted
             def forward(self,x,his_grad):
                 his_grad=(his_grad*self.lr).unsqueeze(0).repeat(x.size(0),1,1)
              
                 his_grad=self.linear_(his_grad)
-                # x=torch.cat([x,his_grad],dim=-1)
-                # x=his_grad
-                # x=x+his_grad
+                
                 x=self.linear(x)
-                # x=his_grad
+        
                 x=x+his_grad
                 x=torch.relu(x)
                 x=self.linear2(x)
                 x=torch.relu(x)
                 x=self.linear3(x)
-                # return -his_grad*0.5
-           
+               
                 return x
         return Adapter(d_model,args)
     
@@ -340,6 +341,8 @@ class Ada_fineture:
             self.optimizer=optim.Adam(self.adapter.parameters(),lr=settings[self.args.model][self.args.data]['adapter_lr'])
         
         for i, (x, y,_,_) in tqdm(enumerate(val_loader),total=len(val_loader)):
+            ## if yuo want to use time step mark, you should change this code to for "(x, y,x_mark,y_mark) in .....""
+            ### and also change the code in online function
             x=x.to(self.device)
             y=y.to(self.device)
             x_list.append(x.detach().cpu().numpy())
@@ -347,7 +350,7 @@ class Ada_fineture:
             output=self.model(x,z_loc=self.args.z_loc,z=self.z)
             feature=output['feature']
             z=self.adapter(feature,his_grad)
-            output=self.model(x,z=z,z_loc=self.args.z_loc)
+            output=self.model(x,z=z,z_loc=self.args.z_loc) # if yuo want to use time step mark, you should change this code to output=self.model(x,z=z,z_loc=self.args.z_loc,x_mark=x_mark)
             pred=output['pred']
             preds.append(pred.detach().cpu().numpy())
             loss=self.loss_func(pred,y)
@@ -376,7 +379,7 @@ class Ada_fineture:
                 loss=self.loss_func(pred_batch,y_batch)
                 
                 loss.backward()
-                his_grad2=self.z.grad
+                his_grad2=self.z.grad # (b,enc_in,d_model)
                 his_grad=torch.mean(his_grad2,dim=0)
 
         print("end val")
@@ -384,8 +387,9 @@ class Ada_fineture:
         print("mae: ",mae)
         print("mse: ",mse)
         return mse
-    
     def online(self, test_loader):
+        ## suppose m_1 means the data in time step 1, m_2 means the data in time step 2, and so on
+        ## suppose the batch size of test_loader is b2 and the batch size of computing history gradient is b1
         pred=[]
         truth=[]
         x_list=[]
@@ -399,74 +403,62 @@ class Ada_fineture:
         his_grad=torch.zeros(self.args.z_shape).to(self.device)[0]
         his_grads=[]
         features=[]
-        his_grad_dict={}
-        feature_dict={}
-        x_dict={}
-        y_dict={}
+        
         for i, (x, y,_,_) in tqdm(enumerate(test_loader),total=len(test_loader)):
+            # the time step now is t=i*b2
             x=x.to(self.device)
             y=y.to(self.device)
             pred_i=self.model(x,z_loc=self.args.z_loc,z=torch.zeros(self.args.z_shape).to(self.device))
             feature=pred_i['feature']
             z=self.adapter(feature,his_grad)
             output=self.model(x,z=z,z_loc=self.args.z_loc)
-            # output=self.model(x)
+
             pred_i=output['pred']
             pred.append(pred_i.detach().cpu().numpy())
             truth.append(y.detach().cpu().numpy())
             x_list.append(x.detach().cpu().numpy())
-            his_grads.append(his_grad.detach().cpu().numpy())
+            his_grads.append(his_grad.detach().unsqueeze(0).repeat(x.shape[0],1,1).detach().cpu().numpy())
             features.append(feature.detach().cpu().numpy())
-            his_grad_dict[(i*test_loader.batch_size)]=his_grad.detach().cpu().numpy()
-            feature_dict[(i*test_loader.batch_size)]=feature.detach().cpu().numpy()
-            x_dict[(i*test_loader.batch_size)]=x.detach().cpu().numpy()
-            y_dict[(i*test_loader.batch_size)]=y.detach().cpu().numpy()
-            if i*test_loader.batch_size>300:
-                del his_grad_dict[(i*test_loader.batch_size-(300//test_loader.batch_size)*test_loader.batch_size)]
-                del feature_dict[(i*test_loader.batch_size-(300//test_loader.batch_size)*test_loader.batch_size)]
-                del x_dict[(i*test_loader.batch_size-(300//test_loader.batch_size)*test_loader.batch_size)]
-                del y_dict[(i*test_loader.batch_size-(300//test_loader.batch_size)*test_loader.batch_size)]
-            if len(np.concatenate(pred,axis=0))>self.args.pred_len+self.args.batch_size:
-                if self.args.pred_len!=1:
-                    x_batch=np.concatenate(x_list[-100:],axis=0)[(-self.args.pred_len-self.args.batch_size):(-self.args.pred_len)]
-                    y_batch=np.concatenate(truth[-100:],axis=0)[-self.args.pred_len-self.args.batch_size:-self.args.pred_len]
-                else:
-                    x_batch=np.concatenate(x_list[-100:],axis=0)[(-self.args.pred_len-self.args.batch_size+1):]
-                    y_batch=np.concatenate(truth[-100:],axis=0)[-self.args.pred_len-self.args.batch_size+1:]
-                x_batch_index=i*test_loader.batch_size-self.args.pred_len-self.args.batch_size+1
+          
+            if len(x_list)>300//test_loader.batch_size:
+                ## only to save memory
+                x_list=x_list[1:]
+    
+                his_grads=his_grads[1:]
+                features=features[1:]
+          
+            if len(np.concatenate(x_list,axis=0))>self.args.pred_len+self.args.batch_size:
+        
+               
+                x_batch=np.concatenate(x_list[-100:],axis=0)[(-self.args.pred_len-self.args.batch_size):(-self.args.pred_len)]
+                y_batch=np.concatenate(truth[-100:],axis=0)[-self.args.pred_len-self.args.batch_size:-self.args.pred_len]    # get m_{t-b1+b2} to m_{t+b2}, these can be obtain when t=(i+1)*b2
+               
+                his_grad_for_update=np.concatenate(his_grads[-100:],axis=0)[-self.args.pred_len-self.args.batch_size:-self.args.pred_len]
+                feature_for_update=np.concatenate(features[-100:],axis=0)[-self.args.pred_len-self.args.batch_size:-self.args.pred_len]
                 x_batch=torch.from_numpy(x_batch).to(self.device)
                 y_batch=torch.from_numpy(y_batch).to(self.device)
+                his_grad_for_update=torch.from_numpy(his_grad_for_update).to(self.device)
+                feature_for_update=torch.from_numpy(feature_for_update).to(self.device)
+                
                 output=self.model(x_batch,z_loc=self.args.z_loc,z=self.z)
                 feature=output['feature']
                 pred_batch=output['pred']
                 feature.retain_grad() 
-
-               
                 loss=self.loss_func(pred_batch,y_batch)
                 loss.backward(retain_graph=True)
                 his_grad2=self.z.grad
-                his_grad=torch.mean(his_grad2,dim=0)
-                if x_batch_index>=0:
-                    for _ in range(1):
-                        index=i*test_loader.batch_size-test_loader.batch_size*((self.args.pred_len-test_loader.batch_size)//(test_loader.batch_size)+1)
-                        x_batch=x_dict[index]
-                        y_batch=y_dict[index]
-                        feature=feature_dict[index]
-                        his_grad2=his_grad_dict[index]
-                        x_batch=torch.from_numpy(x_batch).to(self.device)
-                        y_batch=torch.from_numpy(y_batch).to(self.device)
-                        feature=torch.from_numpy(feature).to(self.device)
-                        his_grad2=torch.from_numpy(his_grad2).to(self.device)
-                        z=self.adapter(feature,his_grad2)
-                        output=self.model(x_batch,z=z,z_loc=self.args.z_loc)
-                        pred_batch=output['pred']
-                        loss=self.loss_func(pred_batch,y_batch)
-                        self.optimizer.zero_grad()
-                        self.optimizer2.zero_grad()
-                        loss.backward()
-                        self.optimizer.step()
-                        self.optimizer2.step()
-
+                his_grad=torch.mean(his_grad2,dim=0)              
+                z=self.adapter(feature_for_update,his_grad_for_update.mean(dim=0))
+                output=self.model(x_batch,z=z,z_loc=self.args.z_loc)
+                pred_batch=output['pred']
+                loss=self.loss_func(pred_batch,y_batch)
+                self.optimizer.zero_grad()
+                self.optimizer2.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+                self.optimizer2.step()
+                
+           
 
                 
 
@@ -478,6 +470,8 @@ class Ada_fineture:
             
         print("end online")
         return mae,mse
+    
+    
 def parse_args(model=None,data=None,data_path=None,seq_len=None,pred_len=None,seed=None):
     # 创建基础解析器
     parser = argparse.ArgumentParser()
@@ -526,8 +520,8 @@ def parse_args(model=None,data=None,data_path=None,seq_len=None,pred_len=None,se
     parser.add_argument('--optimizer', type=str, default='adam', help='优化器')
    
     parser.add_argument('--train_epochs', type=int, default=10, help='训练轮数')
-    parser.add_argument('--batch_size', type=int, default=24, help='批量大小')
-    parser.add_argument('--patience', type=int, default=3, help='早停耐心值')
+    parser.add_argument('--batch_size', type=int, default=24, help='批量大小') ##the batch size used in computing the gradient of z
+    parser.add_argument('--batch_size2', type=int, default=24, help='批量大小') ##the batch size used in test dataloader
     parser.add_argument('--learning_rate', type=float, default=0.001, help='学习率')
     parser.add_argument('--use_amp', action='store_true', help='使用混合精度训练')
     parser.add_argument('--test_run', action='store_true', default=False,
@@ -750,10 +744,10 @@ def finetune(model=None,data=None,data_path=None,seq_len=None,pred_len=None,seed
     
    
     train_loader = DataLoader(train_set, batch_size=24, shuffle=False)
-    args.batch_size = 24
+    # args.batch_size = 24  ## 
     val_loader = DataLoader(val_set, batch_size=24, shuffle=False)
     
-    test_loader = DataLoader(test_set, batch_size=24, shuffle=False)
+    test_loader = DataLoader(test_set, batch_size=args.batch_size2, shuffle=False)
     if args.model=='SOFTS':
         args.z_loc=z_loc
         args.z_shape=(args.batch_size,args.enc_in,256)
@@ -793,8 +787,6 @@ def finetune(model=None,data=None,data_path=None,seq_len=None,pred_len=None,seed
     
     return mae,mse 
 import itertools
-for model,data,pred_len,seed,z_loc in itertools.product(['SOFTS'],['ETTh1','ETTh2','ETTm1','electricity','ETTm2','traffic','PEMS03',
-                                                                                         'PEMS04','weather','PEMS07','PEMS08','solar','exchange'],[1,24,48],[2025],[2]):
-
+for model,data,pred_len,seed,z_loc in itertools.product(['iTransformer'],['ETTh2'],[48],[2025],[2]):
 
     finetune(model,data=data,pred_len=pred_len,seed=seed,z_loc=z_loc)
