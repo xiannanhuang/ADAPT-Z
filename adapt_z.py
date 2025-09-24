@@ -428,8 +428,8 @@ class Ada_fineture:
                 del y_dict[(i*test_loader.batch_size-(300//test_loader.batch_size)*test_loader.batch_size)]
             if len(np.concatenate(pred,axis=0))>self.args.pred_len+self.args.batch_size:
                 if self.args.pred_len!=1:
-                    x_batch=np.concatenate(x_list[-100:],axis=0)[(-self.args.pred_len-self.args.batch_size+1):(-self.args.pred_len+1)]
-                    y_batch=np.concatenate(truth[-100:],axis=0)[-self.args.pred_len-self.args.batch_size+1:-self.args.pred_len+1]
+                    x_batch=np.concatenate(x_list[-100:],axis=0)[(-self.args.pred_len-self.args.batch_size):(-self.args.pred_len)]
+                    y_batch=np.concatenate(truth[-100:],axis=0)[-self.args.pred_len-self.args.batch_size:-self.args.pred_len]
                 else:
                     x_batch=np.concatenate(x_list[-100:],axis=0)[(-self.args.pred_len-self.args.batch_size+1):]
                     y_batch=np.concatenate(truth[-100:],axis=0)[-self.args.pred_len-self.args.batch_size+1:]
@@ -795,5 +795,6 @@ def finetune(model=None,data=None,data_path=None,seq_len=None,pred_len=None,seed
 import itertools
 for model,data,pred_len,seed,z_loc in itertools.product(['SOFTS'],['ETTh1','ETTh2','ETTm1','electricity','ETTm2','traffic','PEMS03',
                                                                                          'PEMS04','weather','PEMS07','PEMS08','solar','exchange'],[1,24,48],[2025],[2]):
+
 
     finetune(model,data=data,pred_len=pred_len,seed=seed,z_loc=z_loc)
