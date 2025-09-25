@@ -18,3 +18,7 @@ run parameter_finetune to conduct experiments using OGD
 run z_finetune to conduct experiments using f-OGD
 
 run train_FAN.py/train_DishTS.py and ada_online2 fan.py/ada_online dishts.py to conduct experiments using FAN/DishTS and FAN+/DishYS+
+
+## Pseudocode
+![sample-wise](sample_version.jpg)
+![batch-wise](batch_version.jpg)
