@@ -206,7 +206,7 @@ def main(model=None,data=None,data_path=None,seq_len=None,pred_len=None,seed=Non
     
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False)
-    test_loader = DataLoader(test_set, batch_size=1, shuffle=False)
+    test_loader = DataLoader(test_set, batch_size=24, shuffle=False)
     
     # 初始化模型
   
@@ -258,3 +258,4 @@ if __name__ == '__main__':
     for model,seed,pred_len,data in itertools.product(['SOFTS'],[2025],[1,24,48],['ETTh1','ETTh2','ETTm1','ETTm2']):
 
             main(model=model,seed=seed,pred_len=pred_len,data=data)
+
