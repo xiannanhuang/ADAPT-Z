@@ -244,6 +244,9 @@ class Ada_fineture:
         self.loss_func=nn.MSELoss()
         self.device=args.device
         self.adapter.to(self.device)
+        z_shape_list = list(args.z_shape)
+        z_shape_list[0] =max(args.batch_size,args.batch_size2)
+        args.z_shape = tuple(z_shape_list)  # 如果需要保持元组类型
         self.z=nn.Parameter(torch.zeros(args.z_shape,requires_grad=True,device=args.device))
 
     def bulid_adapter(self,d_model,args):
@@ -362,9 +365,12 @@ class Ada_fineture:
                 self.optimizer2.step()
             
             if len(np.concatenate(preds,axis=0))>self.args.pred_len+self.args.batch_size:
-               
-                x_batch=np.concatenate(x_list[-100:],axis=0)[(-self.args.pred_len-self.args.batch_size):]
-                y_batch=np.concatenate(truths[-100:],axis=0)[-self.args.pred_len-self.args.batch_size:]
+                # if self.args.pred_len!=1:
+                #     x_batch=np.concatenate(x_list[-100:],axis=0)[(-self.args.pred_len-self.args.batch_size+1):(-self.args.pred_len+1)]
+                #     y_batch=np.concatenate(truths[-100:],axis=0)[-self.args.pred_len-self.args.batch_size+1:-self.args.pred_len+1]
+                # else:
+                x_batch=np.concatenate(x_list[-100:],axis=0)[(-self.args.pred_len-self.args.batch_size):-self.args.pred_len]
+                y_batch=np.concatenate(truths[-100:],axis=0)[-self.args.pred_len-self.args.batch_size:-self.args.pred_len]
                 x_batch=torch.from_numpy(x_batch).to(self.device)
                 y_batch=torch.from_numpy(y_batch).to(self.device)
                 output=self.model(x_batch,z_loc=self.args.z_loc,z=self.z)
@@ -740,9 +746,9 @@ def finetune(model=None,data=None,data_path=None,seq_len=None,pred_len=None,seed
         args.z_shape=(args.batch_size,args.pred_len + args.seq_len,args.d_model)
     
    
-    train_loader = DataLoader(train_set, batch_size=24, shuffle=False)
+    train_loader = DataLoader(train_set, batch_size=args.batch_size2, shuffle=False)
     # args.batch_size = 24  ## 
-    val_loader = DataLoader(val_set, batch_size=24, shuffle=False)
+    val_loader = DataLoader(val_set, batch_size=args.batch_size2, shuffle=False)
     
     test_loader = DataLoader(test_set, batch_size=args.batch_size2, shuffle=False)
     if args.model=='SOFTS':
@@ -752,6 +758,7 @@ def finetune(model=None,data=None,data_path=None,seq_len=None,pred_len=None,seed
     if args.model=='iTransformer':
         args.z_loc=args.e_layers-1
         args.z_shape=(args.batch_size,args.enc_in,args.d_model)
+    
     # 加载模型
     model_path = fr'checkpoints2\{args.model}_{args.data}_{args.seq_len}_{args.pred_len}_{args.seed}.pth'
     
@@ -787,4 +794,3 @@ import itertools
 for model,data,pred_len,seed,z_loc in itertools.product(['iTransformer'],['ETTh2'],[48],[2025],[2]):
 
     finetune(model,data=data,pred_len=pred_len,seed=seed,z_loc=z_loc)
-
